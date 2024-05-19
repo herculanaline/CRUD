@@ -1,56 +1,62 @@
+#Importação das requests referentes ao Flask
 import requests
+#Importação padrão do Flask
+from flask import Flask, request, jsonify
 
-# Importações do Flask
-# from flask import Flask, request, jsonify
-
-#Token de autenticação para a API do Pipefy
+# Token de autenticação para a API do Pipefy
 token = "eyJhbGciOiJIUzUxMiJ9.eyJpc3MiOiJQaXBlZnkiLCJpYXQiOjE3MDQyMDIzOTMsImp0aSI6IjAyZmI0MGFmLWYwNGQtNGNjMi05Yjc4LWJkZmQ5YzhhZWM4NCIsInN1YiI6MzA0MTY1MTY2LCJ1c2VyIjp7ImlkIjozMDQxNjUxNjYsImVtYWlsIjoiZGVzYWZpb2ludGVncmFjYW9AcHJvZmVjdHVtLmNvbS5iciIsImFwcGxpY2F0aW9uIjozMDAzMDU3MDEsInNjb3BlcyI6W119LCJpbnRlcmZhY2VfdXVpZCI6bnVsbH0.NDCy-EvEyaQpct5lEeaXRdCCWCuU4K-DRggf2wdZIsVMo8tIwk0kY7bPVPnngajjULE_hF-O0rqqydkyzJiNBA"
 
-#ID do Pipefy
+# ID do Pipefy
 pipe_id = "303843596"
 
-#URL base da API do Pipefy
-base_url = "https://developers.pipefy.com/reference/what-is-graphql"
+# Iniciando Flask
+app = Flask(__name__)
 
-#Iniciando flask
-# app = Flask(__name__)
+# URL base da API do Pipefy
+base_url = "https://api.pipefy.com/graphql"
 
-# Endpoint para criar um card no Pipefy de acordo com os campos presentes no cadastro de Pessoa
-# @app.route("/")
+# Definindo a página inicial da aplicação, onde exibirá uma mensagem
+@app.route("/")
+def index():
+    return "Flask API to interact with Pipefy"
+
+# Criação de uma nova rota, onde se cria um novo card no Pipefy ao enviar via método Post
+@app.route("/create_card", methods=['POST'])
 def criar_card():
-#     #Montagem da query
-#     query = """
-#     mutation {
-#       createCard(input: {
-#         pipe_id: "%s",
-#         title: "%s",
-#         fields_attributes: [
-#           {field_id: "nome", field_value: "%s"},
-#           {field_id: "email", field_value: "%s"},
-#           {field_id: "idade", field_value: %d}
-#         ]
-#       }) {
-#         card {
-#           id
-#         }
-#       }
-#     }
-#     """ % (pipe_id, data['nome'], data['email'], data['idade'])
+    # Criação de um método onde pegamos os dados enviados na solicitação Post
+    data = request.get_json()
+    # Consulta enviada ao Pipefy para criar um novo card, código padrão segundo a documentação do Pipefy
+    query = """
+    mutation {
+      createCard(input: {
+        pipe_id: "%s",
+        title: "%s",
+        fields_attributes: [
+          {field_id: "role_name", field_value: "%s"},
+          {field_id: "email", field_value: "%s"},
+        ]
+      }) {
+        card {
+          id
+        }
+      }
+    }
+    """ % (pipe_id, data['title'], data['role_name'], data['email'])
 
-#     #Solicitação para a API do Pipefy
-#     response = requests.post(base_url, json={'query': query}, headers={'Authorization': f'Bearer {token}'})
+# Aqui é enviado uma consulta para o Pipefy usando o método Post da biblioteca requests
+    response = requests.post(base_url, json={'query': query}, headers={'Authorization': 'Bearer ' + token})
 
-#     #Verificação
-#     if response.status_code == 200:
-#         card_id = response.json()['data']['createCard']['card']['id']
-#         return jsonify({'message': 'Card criado', 'card_id': card_id}), 200
-#     else:
-#         return jsonify({'error': 'Erro na criação do card no Pipefy'}), response.status_code
+# Então verificamos a presença ou não de erros
+    if response.status_code == 200:
+        card_id = response.json()['data']['createCard']['card']['id']
+        return jsonify({'message': 'Card created!', 'card_id': card_id}), 200
+    else:
+        return jsonify({'error': 'Error when creating card in Pipefy'}), response.status_code
 
-# Endpoint para deletar ID solicitado
-# @app.route('/deletar_card/<card_id>', methods=['DELETE'])
+# É criada uma rota responsável por deletar um card anteriormente criado no Pipefy ao enviar o método Delete
+@app.route('/delete_card/<card_id>', methods=['DELETE'])
 def deletar_card(card_id):
-    #Montagem da query
+    # primeiro ele consulta o card a ser deletado e então deleta o card no Pipefy,código padrão da documentação do pipefy
     query = """
     mutation {
       deleteCard(input: {
@@ -61,45 +67,50 @@ def deletar_card(card_id):
     }
     """ % card_id
 
-    #Solicitando a API
-    response = requests.post(base_url, json={'query': query}, headers={'Authorization': f'Bearer {token}'})
+#Enviamos então uma consulta para o Pipefy usando o método Delete da biblioteca requests
+    response = requests.post(base_url, json={'query': query}, headers={'Authorization': 'Bearer ' + token})
 
-    #Verificação
+# E então verificamos se a autorização foi bem sucedida ou não
     if response.status_code == 200:
-        return jsonify({'message': 'Card deletado'}), 200
+        return jsonify({'message': 'Card deleted'}), 200
     else:
-        return jsonify({'error': 'Erro ao deletar o card no Pipefy'}), response.status_code
+        return jsonify({'error': 'Error when deleting card in Pipefy'}), response.status_code
 
-# Endpoint para atualização da fase
-# @app.route('/atualizar_fase/<card_id>', methods=['PUT'])
-def atualizar_fase(card_id):
-    #Query de atualização
+# Nesse ponto criamos uma rota para atualização de um usuário no Pipefy utilizando o método Put
+@app.route('/update_user/<card_id>', methods=['PUT'])
+def update_user(card_id):
+    
+    #Nesse ponto pegamos os dados enviados
+    data = request.get_json()
+    #E então consultamos para fazer a alteração e enviar para o Pipefy
     query = """
     mutation {
-      moveCard(input: {
-        card_id: "%s",
-        phase_id: "nova_fase_id_aqui"
+      updateCard(input: {
+        id: "%s",
+        fields_attributes: [
+          {field_id: "role_name", field_value: "%s"},
+          {field_id: "email", field_value: "%s"}
+        ]
       }) {
         card {
-          current_phase {
-            name
-          }
+          id
+          title
         }
       }
     }
-    """ % card_id
+    """ % (card_id, data['role_name'], data['email'])
 
-    # Fazendo a solicitação para a API do Pipefy
-    response = requests.post(base_url, json={'query': query}, headers={'Authorization': f'Bearer {token}'})
+#Enviamos então uma consulta para o Pipefy usando o método Put da biblioteca requests
+    response = requests.post(base_url, json={'query': query}, headers={'Authorization': 'Bearer ' + token})
 
-    # Verificando se a solicitação foi bem-sucedida
+#E então verificamos se a solicitação foi bem sucedida ou não
     if response.status_code == 200:
-        fase_atual = response.json()['data']['moveCard']['card']['current_phase']['name']
-        return jsonify({'message': 'Fase atualizada com sucesso', 'fase_atual': fase_atual}), 200
+        authorized_user = response.json()['data']['updateCard']['card']
+        return jsonify({'message': 'User updated successfully!', 'authorized_user': authorized_user}), 200
     else:
-        return jsonify({'error': 'Erro ao atualizar a fase do card no Pipefy'}), response.status_code
+        return jsonify({'error': 'Error updating user in Pipefy'}), response.status_code
 
-# Rodando o aplicativo Flask
-# if __name__ == '__main__':
-#     app.run(debug=True)
 
+#Iniciando a aplicação Flask
+if __name__ == '__main__':
+    app.run(debug=True)
